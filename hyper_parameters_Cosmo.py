@@ -1,16 +1,16 @@
 Input = {
-        "BATCH_SIZE" : 20,
+        "BATCH_SIZE" : 160,
         "NUM_THREADS" : 4,
         "CAPACITY" : 0,
-        "MIN_AFTER_DEQUEUE" : 20
+        "MIN_AFTER_DEQUEUE" : 80
         }
 
-Input["CAPACITY"] = Input["BATCH_SIZE"]*3 + Input["MIN_AFTER_DEQUEUE"]
+Input["CAPACITY"] = Input["BATCH_SIZE"]*4 + Input["MIN_AFTER_DEQUEUE"]
 
 Model = {
-        "REG_RATE": 10e-6,
+        "REG_RATE": 0.,
         "LEAK_PARAMETER": 0.01,
-        "LEARNING_RATE" : 0.0005,
+        "LEARNING_RATE" : 0.0001,
         "DROP_OUT": 0.5
 }
 
