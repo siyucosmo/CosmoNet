@@ -37,8 +37,9 @@ class CosmoNet:
         self.val_data = val_data
         self.val_label = val_label
         
-        self.num_parameters = 3*3*3*1*2+4*4*4*2*12+4*4*4*12*64+3*3*3*64*64+2*2*2*64*128+2*2*2*128*12+1024*1024+1024*256+256*2
-        
+        #self.num_parameters = 3*3*3*1*2+4*4*4*2*12+4*4*4*12*64+3*3*3*64*64+2*2*2*64*128+2*2*2*128*12+1024*1024+1024*256+256*2
+        self.num_parameters = 1
+
         #initialize weight and bias
         self.W = {}
         self.b = {}
@@ -66,8 +67,9 @@ class CosmoNet:
     
     def BatchNorm(self,inputT, IS_TRAINING, scope,reuse=None):
 	with tf.variable_scope(scope,'model',reuse = reuse):
-	    return tf.contrib.layers.batch_norm(inputT, is_training=IS_TRAINING,center = True, scale = False,epsilon=0.0001)
-   	
+	    return tf.contrib.layers.batch_norm(inputT, is_training=IS_TRAINING,center = True, scale = True,epsilon=0.0001,decay=0.99,scope=scope)
+   	    #tf.layers.batch_normalization(inputT,training=training,epsilon=0.0001,axis=-1,name=scope)
+
     def deepNet(self,inputBatch,IS_TRAINING,keep_prob,scope,reuse):
         # First convolutional layer
         with tf.name_scope('conv1'):
@@ -114,7 +116,7 @@ class CosmoNet:
     def loss(self):
         with tf.name_scope('loss'):
             predictions = self.deepNet(inputBatch = self.train_data,IS_TRAINING = True,keep_prob = hp.Model['DROP_OUT'],scope='conv_bn',reuse = None)
-            lossL1 = tf.reduce_mean(tf.losses.absolute_difference(labels = self.train_label,predictions = predictions))
+            lossL1 = tf.reduce_mean(tf.abs(self.train_label-predictions))
             for w in self.W:
                 lossL1 += hp.Model["REG_RATE"]*tf.nn.l2_loss(self.W[w])/self.num_parameters
             return lossL1
@@ -123,14 +125,14 @@ class CosmoNet:
         val_predict = self.deepNet(inputBatch = self.val_data,IS_TRAINING = False,keep_prob = 1,scope='conv_bn',reuse=True)
         val_predict = val_predict*tf.constant([2.905168635566176411e-02,4.023372385668218254e-02],dtype = tf.float32)+tf.constant([2.995679839999998983e-01,8.610806619999996636e-01],dtype = tf.float32)
         val_true = self.val_label*tf.constant([2.905168635566176411e-02,4.023372385668218254e-02],dtype = tf.float32)+tf.constant([2.995679839999998983e-01,8.610806619999996636e-01],dtype = tf.float32)
-        lossL1Val = tf.reduce_mean(tf.losses.absolute_difference(labels = val_true,predictions = val_predict))
+        lossL1Val = tf.reduce_mean(tf.abs(val_true-val_predict)/val_true)
         return lossL1Val,val_true,val_predict
 
     def train_loss(self):
 	train_predict = self.deepNet(inputBatch = self.train_data,IS_TRAINING = False,keep_prob = 1,scope='conv_bn',reuse=True)
         train_predict = train_predict*tf.constant([2.905168635566176411e-02,4.023372385668218254e-02],dtype = tf.float32)+tf.constant([2.995679839999998983e-01,8.610806619999996636e-01],dtype = tf.float32)
         train_true = self.train_label*tf.constant([2.905168635566176411e-02,4.023372385668218254e-02],dtype = tf.float32)+tf.constant([2.995679839999998983e-01,8.610806619999996636e-01],dtype = tf.float32)
-        lossL1Train = tf.reduce_mean(tf.losses.absolute_difference(labels = train_true,predictions = train_predict))
+        lossL1Train = tf.reduce_mean(tf.abs(train_true-train_predict)/train_true)
 	return lossL1Train,train_true,train_predict
 
     def optimize(self):
@@ -180,11 +182,11 @@ class CosmoNet:
                 print("Epoch {} took {:.3f}s".format(epoch, time.time() - start_time))
 		print "  training loss: %.3f" %(loss_per_epoch_train/hp.RUNPARAM['batch_per_epoch'])
 		print "  validation loss: %.3f" %(loss_per_epoch_val/hp.RUNPARAM['batch_per_epoch_val'])
-                np.savetxt('loss_train_batch20_2.txt',losses_train)
-                np.savetxt('loss_val_batch20_2.txt',losses_val)
-                np.savetxt('losses2.txt',losses)
-                np.savetxt('/zfsauton/home/siyuh/pred2/train_pred'+str(epoch)+'.txt',np.c_[train_true_,train_predict_])
-                np.savetxt('/zfsauton/home/siyuh/pred2/val_pred'+str(epoch)+'.txt',np.c_[val_true_,val_predict_])
+                np.savetxt('loss_train_batch20_4.txt',losses_train)
+                np.savetxt('loss_val_batch20_4.txt',losses_val)
+                np.savetxt('losses4.txt',losses)
+                np.savetxt('/zfsauton/home/siyuh/pred4/train_pred'+str(epoch)+'.txt',np.c_[train_true_,train_predict_])
+                np.savetxt('/zfsauton/home/siyuh/pred4/val_pred'+str(epoch)+'.txt',np.c_[val_true_,val_predict_])
 		
                         
             
