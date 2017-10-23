@@ -79,13 +79,13 @@ def read_tfrecord(filename_queue):
     
 def readDataSet(filenames):
     filename_queue = tf.train.string_input_producer(filenames,num_epochs=None,shuffle=True)
-    #NbodySimus,label= read_tfrecord(filename_queue)
+    NbodySimus,label= read_tfrecord(filename_queue)
     NbodyList = [read_tfrecord(filename_queue) for _ in range(hyper_parameters_Cosmo.Input["NUM_THREADS"])]
-    NbodySimus_batch, label_batch = tf.train.shuffle_batch_join(
-    	#[NbodySimus,label],
-	NbodyList,
+    NbodySimus_batch, label_batch = tf.train.shuffle_batch(
+    	[NbodySimus,label],
+	#NbodyList,
     	batch_size = hyper_parameters_Cosmo.Input["BATCH_SIZE"],
-    	#num_threads = hyper_parameters_Cosmo.Input["NUM_THREADS"],
+    	num_threads = hyper_parameters_Cosmo.Input["NUM_THREADS"],
     	capacity = hyper_parameters_Cosmo.Input["CAPACITY"],
     	min_after_dequeue = hyper_parameters_Cosmo.Input["MIN_AFTER_DEQUEUE"],
 	allow_smaller_final_batch=True)
@@ -100,7 +100,7 @@ if __name__ == '__main__':
     
     label_path = os.path.join('/zfsauton/home/siyuh/256_64','basics_infos_1000_1499.txt')
     labels = np.loadtxt(label_path,delimiter=',')    
-    '''
+    
     for i in range(0,499):
         data = []
         label = []
@@ -111,6 +111,7 @@ if __name__ == '__main__':
             data = np.append(data,np.load(data_path))
             label = np.append(label,labels[numDirectory][[1,3]])
         loadNpyData(data.reshape(-1,64,64,64,1),label.reshape(-1,2),i).convert_to()
+    
     '''
     NbodySimu, NbodyLabel,prand = readDataSet(filenames=["0.tfrecord"])
     with tf.Session() as sess:
@@ -124,6 +125,7 @@ if __name__ == '__main__':
 	
 	coord.request_stop()
 	coord.join()
+    '''
     
     
     
