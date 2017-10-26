@@ -1,11 +1,20 @@
 Input = {
-        "BATCH_SIZE" : 160,
-        "NUM_THREADS" : 4,
+        "BATCH_SIZE" : 40,
+        "NUM_THREADS" : 2,
         "CAPACITY" : 0,
-        "MIN_AFTER_DEQUEUE" : 80
+        "MIN_AFTER_DEQUEUE" : 400
         }
 
 Input["CAPACITY"] = Input["BATCH_SIZE"]*4 + Input["MIN_AFTER_DEQUEUE"]
+
+Input_Test = {
+	"BATCH_SIZE" : 64,
+	"NUM_THREADS" : 2,
+	"CAPACITY" : 0,
+	"MIN_AFTER_DEQUEUE" : 64
+	}
+
+Input_Test["CAPACITY"] = Input_Test["BATCH_SIZE"]*4 + Input_Test["MIN_AFTER_DEQUEUE"]
 
 Model = {
         "REG_RATE": 0.,
@@ -15,11 +24,12 @@ Model = {
 }
 
 RUNPARAM={
-	"num_epoch": 200,
-	"num_train":450,
-	"num_val":45,
+	"num_epoch": 1000,
+	"num_train":400,
+	"num_val":50,
 	"batch_per_epoch":0,
-	"batch_per_epoch_val":0
+	"batch_per_epoch_val":0,
+        "iter_test":49
 }
 
 RUNPARAM["batch_per_epoch"] = RUNPARAM['num_train']*64/Input['BATCH_SIZE']
