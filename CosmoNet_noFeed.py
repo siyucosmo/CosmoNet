@@ -2,12 +2,11 @@
 
 import tensorflow as tf
 import numpy as np
-from io_Cosmo import *
+from io_Cosmo_test import *
 import hyper_parameters_Cosmo as hp
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from data_aug import *
 import time
 from numpy import linalg as LA
 
@@ -15,7 +14,6 @@ from numpy import linalg as LA
 #        initial = tf.truncated_normal(shape, stddev=0.1)
 #        return tf.Variable(initial)
 
-test_random = 0
 
 def weight_variable(shape,name):
 	W = tf.get_variable(name,shape=shape, initializer=tf.contrib.layers.xavier_initializer())
@@ -30,12 +28,15 @@ def lrelu(x, alpha):
 
 
 class CosmoNet:
-    def __init__(self,train_data,train_label,using_val = False, val_data = None, val_label = None):
+    def __init__(self,train_data,train_label, val_data = None, val_label = None, test_data = None, test_label = None, is_train = None, is_test = None):
         self.train_data = train_data
         self.train_label = train_label
-        self.using_val = using_val 
         self.val_data = val_data
         self.val_label = val_label
+	self.test_data = test_data
+	self.test_label = test_label
+	self.is_train = is_train
+	self.is_test = is_test
         
         #self.num_parameters = 3*3*3*1*2+4*4*4*2*12+4*4*4*12*64+3*3*3*64*64+2*2*2*64*128+2*2*2*128*12+1024*1024+1024*256+256*2
         self.num_parameters = 1
@@ -135,6 +136,13 @@ class CosmoNet:
         lossL1Train = tf.reduce_mean(tf.abs(train_true-train_predict)/train_true)
 	return lossL1Train,train_true,train_predict
 
+    def test_loss(self):
+        test_predict = self.deepNet(inputBatch = self.test_data,IS_TRAINING = False,keep_prob = 1,scope='conv_bn',reuse=True)
+        test_predict = test_predict*tf.constant([2.905168635566176411e-02,4.023372385668218254e-02],dtype = tf.float32)+tf.constant([2.995679839999998983e-01,8.610806619999996636e-01],dtype = tf.float32)
+        test_true = self.test_label*tf.constant([2.905168635566176411e-02,4.023372385668218254e-02],dtype = tf.float32)+tf.constant([2.995679839999998983e-01,8.610806619999996636e-01],dtype = tf.float32)
+        lossL1Test = tf.reduce_mean(tf.abs(test_true-test_predict)/test_true)
+        return lossL1Test,test_true,test_predict
+
     def optimize(self):
         loss = self.loss()
         with tf.name_scope('adam_optimizer'):
@@ -146,61 +154,102 @@ class CosmoNet:
         return train_step, loss,lossL1Train,train_true,train_predict
     
     def train(self):
-        
         train_step, loss, lossL1Train,train_true,train_predict = self.optimize()
         lossL1Val,val_true,val_predict = self.validation_loss()
+        lossL1Test,test_true,test_predict = self.test_loss()
         
 	config = tf.ConfigProto()
         config.gpu_options.per_process_gpu_memory_fraction = 0.4
-        with tf.Session() as sess:
-            losses_train = []  
-            losses_val = []
-            losses = []
-	    val_accuracys = []       
-	    data_accuracys = []   
-            sess.run(tf.global_variables_initializer())
-	    sess.run(tf.local_variables_initializer())
-            coord = tf.train.Coordinator()
-            threads = tf.train.start_queue_runners(coord=coord)
-            
-	    for epoch in range(hp.RUNPARAM['num_epoch']):
-		start_time = time.time()
-                loss_per_epoch_train = 0
-                loss_per_epoch_val = 0
-                lossTrain_per_epoch = 0
-                for i in range(hp.RUNPARAM['batch_per_epoch']):  
-			_,lossTrain,lossL1Train_,train_true_,train_predict_ = sess.run([train_step,loss,lossL1Train,train_true,train_predict])
-			loss_per_epoch_train += lossL1Train_
-                        lossTrain_per_epoch +=lossTrain
-                losses.append(lossTrain_per_epoch/hp.RUNPARAM['batch_per_epoch'])
-		losses_train.append(loss_per_epoch_train/hp.RUNPARAM['batch_per_epoch'])
-		
-		for i in range(hp.RUNPARAM['batch_per_epoch_val']):
-			loss_,val_true_,val_predict_ = sess.run([lossL1Val,val_true,val_predict])
-                        loss_per_epoch_val += loss_
-		losses_val.append(loss_per_epoch_val/hp.RUNPARAM['batch_per_epoch_val'])
-                print("Epoch {} took {:.3f}s".format(epoch, time.time() - start_time))
-		print "  training loss: %.3f" %(loss_per_epoch_train/hp.RUNPARAM['batch_per_epoch'])
-		print "  validation loss: %.3f" %(loss_per_epoch_val/hp.RUNPARAM['batch_per_epoch_val'])
-                np.savetxt('loss_train_batch20_4.txt',losses_train)
-                np.savetxt('loss_val_batch20_4.txt',losses_val)
-                np.savetxt('losses4.txt',losses)
-                np.savetxt('/zfsauton/home/siyuh/pred4/train_pred'+str(epoch)+'.txt',np.c_[train_true_,train_predict_])
-                np.savetxt('/zfsauton/home/siyuh/pred4/val_pred'+str(epoch)+'.txt',np.c_[val_true_,val_predict_])
-		
-                        
-            
-            coord.request_stop();
-            coord.join(threads);
-        return losses_train,losses_val
+ 
+        #used to save the model
+	saver = tf.train.Saver()
+        global best_validation_accuracy
+        global last_improvement
+        global total_iterations
+	best_validation_accuracy = 1.0         #Best validation accuracy seen so far
+	last_improvement = 0                   #Iteration-number for last improvement to validation accuracy.
+	require_improvement = 50               #Stop optimization if no improvement found in this many iterations.
+        total_iterations = 0                   #Counter for total number of iterations performed so far.        
+	
+	if(self.is_train):
+      	    with tf.Session() as sess:
+        	losses_train = []  
+        	losses_val = []
+        	losses = []
+		val_accuracys = []       
+		data_accuracys = []   
+        	sess.run(tf.global_variables_initializer())
+		sess.run(tf.local_variables_initializer())
+        	coord = tf.train.Coordinator()
+        	threads = tf.train.start_queue_runners(coord=coord)
+
+		for epoch in range(hp.RUNPARAM['num_epoch']):
+			save_path = os.path.join('/zfsauton/home/siyuh/model', 'best_validation')
+			total_iterations += 1
+			start_time = time.time()
+        	        loss_per_epoch_val = 0
+        	        loss_per_epoch_train = 0
+        	        for i in range(hp.RUNPARAM['batch_per_epoch']):  
+				_,lossTrain,lossL1Train_,train_true_,train_predict_ = sess.run([train_step,loss,lossL1Train,train_true,train_predict])
+        	                loss_per_epoch_train +=lossL1Train_
+        	        losses.append(loss_per_epoch_train/hp.RUNPARAM['batch_per_epoch'])
+			losses_train.append(loss_per_epoch_train/hp.RUNPARAM['batch_per_epoch'])
+			
+			for i in range(hp.RUNPARAM['batch_per_epoch_val']):
+				loss_,val_true_,val_predict_ = sess.run([lossL1Val,val_true,val_predict])
+        	                loss_per_epoch_val += loss_
+			losses_val.append(loss_per_epoch_val/hp.RUNPARAM['batch_per_epoch_val'])
+
+        	        if(loss_per_epoch_val/hp.RUNPARAM['batch_per_epoch_val'] < best_validation_accuracy):
+				best_validation_accuracy  = loss_per_epoch_val/hp.RUNPARAM['batch_per_epoch_val'] 
+				last_improvement = total_iterations
+				saver.save(sess=sess, save_path=save_path)
+			
+			print("Epoch {} took {:.3f}s".format(epoch, time.time() - start_time))
+                        print "  training loss: %.3f" %(loss_per_epoch_train/hp.RUNPARAM['batch_per_epoch'])
+                        print "  validation loss: %.3f" %(loss_per_epoch_val/hp.RUNPARAM['batch_per_epoch_val'])
+                        print "  best loss: %.3f"%best_validation_accuracy	
+			np.savetxt('/zfsauton/home/siyuh/result/train/loss_train_batch20_5.txt',losses_train)
+        	        np.savetxt('/zfsauton/home/siyuh/result/valid/loss_val_batch20_5.txt',losses_val)
+        	        np.savetxt('losses5.txt',losses)
+        	        np.savetxt('/zfsauton/home/siyuh/result/train/train_pred'+str(epoch)+'.txt',np.c_[train_true_,train_predict_])
+        	        np.savetxt('/zfsauton/home/siyuh/result/valid/val_pred'+str(epoch)+'.txt',np.c_[val_true_,val_predict_])
+			if(total_iterations - last_improvement > require_improvement):
+				print ("No improvement found in a while, stopping optimization.")
+				break		                        
+		coord.request_stop();
+                coord.join(threads);
+
+	if(self.is_test):
+		with tf.Session() as sess:
+	    		saver.restore(sess=sess,save_path=save_path)
+			coord = tf.train.Coordinator()
+                	threads = tf.train.start_queue_runners(coord=coord)
+            		loss_test = []
+            		for i in range(0,hp.RUNPARAM['iter_test']):
+				start_time = time.time()
+		    		lossL1Test_,test_true_,test_predict_ = sess.run([lossL1Test,test_true,test_predict])
+		    		loss_test.append(lossL1Test_)	
+				print("Box {} took {:.3f}s".format(i, time.time() - start_time))
+				print "  test loss: %.3f"%lossL1Test_
+	    		        np.savetxt('/zfsauton/home/siyuh/result/test/test_batch_'+str(i)+'.txt',np.c_[test_true_,test_predict_])
+	    		np.savetxt('loss_test.txt',loss_test)
+                	coord.request_stop()
+			coord.join(threads)
+   
+
+	    
+	    	
 
 if __name__ == "__main__":
-    NbodySimuDataBatch64, NbodySimuLabelBatch64 = readDataSet(filenames = [str(i)+'.tfrecord' for i in range(0,450)])
+    NbodySimuDataBatch64, NbodySimuLabelBatch64 = readDataSet(filenames = ['/zfsauton/home/siyuh/data/train/'+str(i)+'.tfrecord' for i in range(0,400)])
     NbodySimuDataBatch32, NbodySimuLabelBatch32 = tf.cast(NbodySimuDataBatch64,tf.float32),tf.cast(NbodySimuLabelBatch64,tf.float32)
-    valDataBatch64, valLabelbatch64 = readDataSet(filenames=[str(i)+".tfrecord" for i in range(450,495)]);
+    valDataBatch64, valLabelbatch64 = readDataSet(filenames=['/zfsauton/home/siyuh/data/valid/'+str(i)+".tfrecord" for i in range(400,450)]);
     valDataBatch32, valLabelbatch32 = tf.cast(valDataBatch64,tf.float32),tf.cast(valLabelbatch64,tf.float32)
-    trainCosmo = CosmoNet(train_data = NbodySimuDataBatch32, train_label = NbodySimuLabelBatch32, using_val = True, val_data = valDataBatch32, val_label = valLabelbatch32)
-    losses_train,losses_val = trainCosmo.train()
+    testDataBatch64, testLabelbatch64 = readTestSet(filenames=['/zfsauton/home/siyuh/data/test/'+str(i)+".tfrecord" for i in range(450,499)]);
+    testDataBatch32, testLabelbatch32 = tf.cast(testDataBatch64,tf.float32),tf.cast(testLabelbatch64,tf.float32)
+    trainCosmo = CosmoNet(train_data=NbodySimuDataBatch32,train_label=NbodySimuLabelBatch32,val_data=valDataBatch32,val_label=valLabelbatch32,test_data=testDataBatch32,test_label=testLabelbatch32,is_train=True, is_test=True)
+    trainCosmo.train()
     #np.savetxt("losses4.txt",losses)
     #np.savetxt("accuracy4.txt",val_accuracys)
     #np.savetxt("data_accuracy4.txt",data_accuracys)
