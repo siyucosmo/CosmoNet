@@ -150,11 +150,12 @@ def readTestSet(filenames):
         
 
 if __name__ == '__main__':
-    order = np.split(np.random.permutation(64*499),499)
+    order = np.random.permutation(64*400)
+    order = np.split(np.append(order,np.arange(64*400,64*499)),499)
     
     label_path = os.path.join('/zfsauton/home/siyuh/256_64','basics_infos_1000_1499.txt')
     labels = np.loadtxt(label_path,delimiter=',')    
-    '''   
+       
     for i in range(0,499):
         data = []
         label = []
@@ -165,8 +166,8 @@ if __name__ == '__main__':
             data = np.append(data,np.load(data_path))
             label = np.append(label,labels[numDirectory][[1,3]])
         loadNpyData(data.reshape(-1,64,64,64,1),label.reshape(-1,2),i).convert_to()
+    
     '''
-   
     NbodySimu, NbodyLabel = readTestSet(filenames=["400.tfrecord","401.tfrecord"])
     with tf.Session() as sess:
 	sess.run(tf.global_variables_initializer())
@@ -179,4 +180,5 @@ if __name__ == '__main__':
 	
 	coord.request_stop()
 	coord.join()
+    '''
   

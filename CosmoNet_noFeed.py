@@ -168,7 +168,7 @@ class CosmoNet:
         global total_iterations
 	best_validation_accuracy = 1.0         #Best validation accuracy seen so far
 	last_improvement = 0                   #Iteration-number for last improvement to validation accuracy.
-	require_improvement = 50               #Stop optimization if no improvement found in this many iterations.
+	require_improvement = hp.RUNPARAM['require_improvement']               #Stop optimization if no improvement found in this many iterations.
         total_iterations = 0                   #Counter for total number of iterations performed so far.        
 	
 	if(self.is_train):
@@ -184,7 +184,7 @@ class CosmoNet:
         	threads = tf.train.start_queue_runners(coord=coord)
 
 		for epoch in range(hp.RUNPARAM['num_epoch']):
-			save_path = os.path.join('/zfsauton/home/siyuh/model', 'best_validation')
+			save_path = os.path.join(hp.Path['Model_path'], 'best_validation')
 			total_iterations += 1
 			start_time = time.time()
         	        loss_per_epoch_val = 0
@@ -209,11 +209,11 @@ class CosmoNet:
                         print "  training loss: %.3f" %(loss_per_epoch_train/hp.RUNPARAM['batch_per_epoch'])
                         print "  validation loss: %.3f" %(loss_per_epoch_val/hp.RUNPARAM['batch_per_epoch_val'])
                         print "  best loss: %.3f"%best_validation_accuracy	
-			np.savetxt('/zfsauton/home/siyuh/result/train/loss_train_batch20_5.txt',losses_train)
-        	        np.savetxt('/zfsauton/home/siyuh/result/valid/loss_val_batch20_5.txt',losses_val)
-        	        np.savetxt('losses5.txt',losses)
-        	        np.savetxt('/zfsauton/home/siyuh/result/train/train_pred'+str(epoch)+'.txt',np.c_[train_true_,train_predict_])
-        	        np.savetxt('/zfsauton/home/siyuh/result/valid/val_pred'+str(epoch)+'.txt',np.c_[val_true_,val_predict_])
+			np.savetxt(os.path.join(hp.Path['train_result'],'loss_train.txt'),losses_train)
+        	        np.savetxt(os.path.join(hp.Path['val_result'],'loss_val.txt'),losses_val)
+        	        np.savetxt(os.path.join(hp.Path['train_result'],'losses.txt'),losses)
+        	        #np.savetxt(os.path.join(hp.Path['train_result'],'train_pred'+str(epoch)+'.txt'),np.c_[train_true_,train_predict_])
+        	        #np.savetxt(os.path.join(hp.Path['val_result'],'val_pred'+str(epoch)+'.txt'),np.c_[val_true_,val_predict_])
 			if(total_iterations - last_improvement > require_improvement):
 				print ("No improvement found in a while, stopping optimization.")
 				break		                        
@@ -232,8 +232,8 @@ class CosmoNet:
 		    		loss_test.append(lossL1Test_)	
 				print("Box {} took {:.3f}s".format(i, time.time() - start_time))
 				print "  test loss: %.3f"%lossL1Test_
-	    		        np.savetxt('/zfsauton/home/siyuh/result/test/test_batch_'+str(i)+'.txt',np.c_[test_true_,test_predict_])
-	    		np.savetxt('loss_test.txt',loss_test)
+	    		        np.savetxt(os.path.join(hp.Path['test_result'],'test_batch_'+str(i)+'.txt'),np.c_[test_true_,test_predict_])
+	    		np.savetxt(os.path.join(hp.Path['test_result'],'loss_test.txt'),loss_test)
                 	coord.request_stop()
 			coord.join(threads)
    
@@ -242,11 +242,11 @@ class CosmoNet:
 	    	
 
 if __name__ == "__main__":
-    NbodySimuDataBatch64, NbodySimuLabelBatch64 = readDataSet(filenames = ['/zfsauton/home/siyuh/data/train/'+str(i)+'.tfrecord' for i in range(0,400)])
+    NbodySimuDataBatch64, NbodySimuLabelBatch64 = readDataSet(filenames = [hp.Path['train_data']+str(i)+'.tfrecord' for i in range(0,400)])
     NbodySimuDataBatch32, NbodySimuLabelBatch32 = tf.cast(NbodySimuDataBatch64,tf.float32),tf.cast(NbodySimuLabelBatch64,tf.float32)
-    valDataBatch64, valLabelbatch64 = readDataSet(filenames=['/zfsauton/home/siyuh/data/valid/'+str(i)+".tfrecord" for i in range(400,450)]);
+    valDataBatch64, valLabelbatch64 = readDataSet(filenames=[hp.Path['val_data']+str(i)+".tfrecord" for i in range(400,450)]);
     valDataBatch32, valLabelbatch32 = tf.cast(valDataBatch64,tf.float32),tf.cast(valLabelbatch64,tf.float32)
-    testDataBatch64, testLabelbatch64 = readTestSet(filenames=['/zfsauton/home/siyuh/data/test/'+str(i)+".tfrecord" for i in range(450,499)]);
+    testDataBatch64, testLabelbatch64 = readTestSet(filenames=[hp.Path['test_data']+str(i)+".tfrecord" for i in range(450,499)]);
     testDataBatch32, testLabelbatch32 = tf.cast(testDataBatch64,tf.float32),tf.cast(testLabelbatch64,tf.float32)
     trainCosmo = CosmoNet(train_data=NbodySimuDataBatch32,train_label=NbodySimuLabelBatch32,val_data=valDataBatch32,val_label=valLabelbatch32,test_data=testDataBatch32,test_label=testLabelbatch32,is_train=True, is_test=True)
     trainCosmo.train()
