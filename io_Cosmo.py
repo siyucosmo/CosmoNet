@@ -3,7 +3,6 @@ import tensorflow as tf
 import hyper_parameters_Cosmo
 import os
 import itertools
-from data_aug import *
 
 def _float64_feature(value):
   return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
