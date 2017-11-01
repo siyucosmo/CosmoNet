@@ -161,7 +161,7 @@ if __name__ == '__main__':
         for j in order[i]:
             numDirectory = int(j/64)
             numFile = j%64
-            data_path = os.path.join('/zfsauton/home/siyuh/256_64',str('01')+str(numDirectory).rjust(3,'0'),str(numFile)+'.npy')
+            data_path = os.path.join(hyper_parameters_Cosmo.Path["init_data"],str('01')+str(numDirectory).rjust(3,'0'),str(numFile)+'.npy')
             data = np.append(data,np.load(data_path))
             label = np.append(label,labels[numDirectory][[1,3]])
         loadNpyData(data.reshape(-1,64,64,64,1),label.reshape(-1,2),i).convert_to()
