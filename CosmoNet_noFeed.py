@@ -2,13 +2,9 @@
 
 import tensorflow as tf
 import numpy as np
-from io_Cosmo_test import *
+from io_Cosmo import *
 import hyper_parameters_Cosmo as hp
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 import time
-from numpy import linalg as LA
 
 #def weight_variable(shape):
 #        initial = tf.truncated_normal(shape, stddev=0.1)
