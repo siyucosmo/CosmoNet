@@ -39,6 +39,7 @@ RUNPARAM["batch_per_epoch_val"] = RUNPARAM['num_val']*64/Input['BATCH_SIZE']
 RUNPARAM['iter_test'] = RUNPARAM['num_test']*64/Input_Test['BATCH_SIZE']
 
 Path={
+	"init_data" :  '/zfsauton/home/siyuh/256_64/',                 #Path where the init data is
         "Model_path" : '/zfsauton/home/siyuh/result',                 #Path to save the best model where the validation error is the smallest. And then we use this model for test
         "train_data" : '/zfsauton/home/siyuh/data/train/',            #path where the  train data is
 	"train_result" : '/zfsauton/home/siyuh/result/',        #path to store the train result
@@ -47,4 +48,4 @@ Path={
 	"test_data" : '/zfsauton/home/siyuh/data/test/',              #path where the  test data is
 	"test_result" : '/zfsauton/home/siyuh/result/'           #path to store the test result
 
-}
+}  
